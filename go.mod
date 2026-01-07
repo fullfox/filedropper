@@ -1,4 +1,4 @@
-module filedropper
+module github.com/fullfox/filedropper
 
 go 1.22.2
 
