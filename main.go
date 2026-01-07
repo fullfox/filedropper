@@ -362,7 +362,7 @@ func formatDuration(d time.Duration) string {
 }
 
 func handlePublicFiles(w http.ResponseWriter, r *http.Request) {
-	rows, err := db.Query("SELECT id, filename, size, public, created_at, expires_at, upload_ip FROM files WHERE public = 1 AND expires_at > ?", time.Now().Format(time.RFC3339))
+	rows, err := db.Query("SELECT id, filename, size, public, created_at, expires_at, upload_ip FROM files WHERE public = 1 AND expires_at > ? ORDER BY created_at DESC", time.Now().Format(time.RFC3339))
 	if err != nil {
 		http.Error(w, "Failed to query database", http.StatusInternalServerError)
 		return
