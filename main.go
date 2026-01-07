@@ -30,10 +30,11 @@ var (
 	bindAddr      = flag.String("bind", "0.0.0.0", "Interface to bind to")
 	port          = flag.Int("p", 8080, "Port to listen on")
 	dataDir       = flag.String("d", "data", "Directory with db and files")
-	maxUploadSize = flag.Int64("max-upload-size", 100*1024*1024, "Max file upload size")
-	maxStorage    = flag.Int64("max-storage", 20*1024*1024*1024, "Max total storage limit")
+	maxUploadSize = flag.Int64("max-upload-size", 100*1024*1024, "Max file upload size (bytes)")
+	maxStorage    = flag.Int64("max-storage", 20*1024*1024*1024, "Max total storage limit (bytes)")
 	adminPassword = flag.String("admin-password", "", "Admin panel password (auto-generated if not set)")
 	maxTTL        = flag.Duration("max-ttl", 168*time.Hour, "Max TTL duration (0 for permanent)")
+	version       = flag.Bool("v", false, "Print version and exit")
 )
 
 type File struct {
@@ -50,6 +51,11 @@ type File struct {
 
 func main() {
 	flag.Parse()
+
+	if *version {
+		fmt.Println("Filedropper Go 1.0")
+		os.Exit(0)
+	}
 
 	if *adminPassword == "" {
 		*adminPassword = generatePassword(24)

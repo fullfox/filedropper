@@ -14,10 +14,10 @@ curl -T myfile.txt "https://filedropper.eu/upload/myfile.txt?expiration=168h&pub
 
 **PowerShell:**
 ```powershell
-Invoke-WebRequest -Uri "https://filedropper.eu/upload/myfile.txt" -Method Put -InFile myfile.txt
+iwr -Uri "https://filedropper.eu/upload/myfile.txt" -Method Put -InFile myfile.txt
 ```
 ```powershell
-Invoke-WebRequest -Uri "https://filedropper.eu/upload/myfile.txt?expiration=168h&public=yes" -Method Put -InFile myfile.txt
+iwr -Uri "https://filedropper.eu/upload/myfile.txt?expiration=168h&public=yes" -Method Put -InFile myfile.txt
 ```
 
 **URL Parameters:**
