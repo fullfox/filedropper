@@ -132,6 +132,7 @@
           <th>Size</th>
           <th>Public</th>
           <th>IP</th>
+          <th>Created</th>
           <th>Expires</th>
           <th>Delete</th>
         </tr>
@@ -168,6 +169,13 @@
         const date = new Date(dateString);
         const now = new Date();
         const diff = date - now;
+        
+        // If it's a past date (created_at), show absolute date
+        if (diff < 0) {
+          return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
+        
+        // If it's a future date (expires_at), show relative time
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
         const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         if (days > 365) return 'Permanent';
@@ -197,7 +205,7 @@
           const files = await response.json();
 
           if (files.length === 0) {
-            fileList.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#666;">No files</td></tr>';
+            fileList.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#666;">No files</td></tr>';
             return;
           }
 
@@ -207,6 +215,7 @@
               <td>${formatBytes(file.size)}</td>
               <td>${file.public ? 'Yes' : 'No'}</td>
               <td>${file.upload_ip || '-'}</td>
+              <td>${formatDate(file.created_at)}</td>
               <td>${formatDate(file.expires_at)}</td>
               <td><span class="delete-btn" onclick="event.stopPropagation();deleteFile('${file.id}')">❌</span></td>
             </tr>

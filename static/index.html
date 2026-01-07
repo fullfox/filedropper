@@ -155,6 +155,7 @@
       <a class="tr">
         <div class="th">filename</div>
         <div class="th">size</div>
+        <div class="th">created</div>
         <div class="th">expires</div>
       </a>
       <div id="file-list">
@@ -213,8 +214,12 @@
         const now = new Date();
         const diff = date - now;
         
-        if (diff < 0) return 'Expired';
+        // If it's a past date (created_at), show absolute date
+        if (diff < 0) {
+          return date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        }
         
+        // If it's a future date (expires_at), show relative time
         const days = Math.floor(diff / (1000 * 60 * 60 * 24));
         const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
         
@@ -318,6 +323,7 @@
               <a href="${file.url}" class="tr" target="_blank">
                 <div class="td">${file.filename}</div>
                 <div class="td">${formatBytes(file.size)}</div>
+                <div class="td">${formatDate(file.created_at)}</div>
                 <div class="td">${formatDate(file.expires_at)}</div>
               </a>
             `).join('');
