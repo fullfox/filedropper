@@ -66,6 +66,13 @@ func main() {
 		log.Fatalf("Failed to create data directory: %v", err)
 	}
 
+	// Create temp directory for multipart uploads and set TMPDIR
+	tmpDir := filepath.Join(*dataDir, "tmp")
+	if err := os.MkdirAll(tmpDir, 0755); err != nil {
+		log.Fatalf("Failed to create temp directory: %v", err)
+	}
+	os.Setenv("TMPDIR", tmpDir)
+
 	var err error
 	db, err = sql.Open("sqlite3", filepath.Join(*dataDir, "filedropper.db"))
 	if err != nil {
@@ -154,6 +161,7 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		file, handler, err := r.FormFile("file")
 		if err != nil {
+			log.Printf("FormFile error: %v (Content-Length: %d, Content-Type: %s)", err, r.ContentLength, r.Header.Get("Content-Type"))
 			w.WriteHeader(http.StatusBadRequest)
 			if wantsJSON(r) {
 				w.Header().Set("Content-Type", "application/json")

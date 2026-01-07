@@ -43,7 +43,7 @@
       .tr { display: table-row; }
       .th,.td { display: table-cell; padding: 0 10px; }
       .th {text-align: left; background: var(--maincolor); color: white; font-weight: bold;}
-      .td:first-child {
+      .td {
         white-space: nowrap;
         overflow: clip;
         text-overflow: ellipsis;
@@ -65,9 +65,15 @@
         cursor: pointer;
         box-sizing: border-box;
       }
-      #upload-box:hover, #upload-box.uploaded {
+      #upload-box:hover:not(.uploading), #upload-box.uploaded {
         color: white;
         background: var(--maincolor);
+      }
+
+      #upload-box.uploading {
+        --progress: 0%;
+        background: linear-gradient(to right, var(--maincolor) var(--progress), white var(--progress));
+        cursor: wait;
       }
 
       #dynamic-status {
@@ -75,13 +81,22 @@
         text-align: center;
         color: var(--maincolor);
       }
-      #upload-box:hover #dynamic-status, #upload-box.uploaded #dynamic-status {
+      #upload-box:hover:not(.uploading) #dynamic-status, #upload-box.uploaded #dynamic-status {
         color: white;
+      }
+
+      #upload-box.uploading #dynamic-status {
+        background: linear-gradient(to right, white var(--progress), var(--maincolor) var(--progress));
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
       }
 
       #static-status, #static-status a {
         color: white;
         text-align: center;
+        overflow-wrap: break-word;
+        width: 100%;
       }
       #download-link {background: var(--importantcolor);}
       #download-link:hover {font-weight: bold;}
@@ -217,7 +232,9 @@
           return;
         }
 
-        dynamicStatus.textContent = 'Uploading...';
+        dynamicStatus.textContent = 'Uploading... 0%';
+        uploadBox.classList.add('uploading');
+        uploadBox.style.setProperty('--progress', '0%');
 
         const expiration = expirationSelect.value;
         const isPublic = publicCheckbox.checked ? 'yes' : 'no';
@@ -228,21 +245,36 @@
         formData.append('file', file);
         
         try {
-          const response = await fetch(url, {
-            method: 'POST',
-            body: formData,
-            headers: { 'Accept': 'application/json' }
+          const result = await new Promise((resolve, reject) => {
+            const xhr = new XMLHttpRequest();
+            
+            xhr.upload.onprogress = (e) => {
+              if (e.lengthComputable) {
+                const percent = ((e.loaded / e.total) * 100).toFixed(1);
+                dynamicStatus.textContent = `Uploading... ${percent}%`;
+                uploadBox.style.setProperty('--progress', `${percent}%`);
+              }
+            };
+            
+            xhr.onload = () => {
+              if (xhr.status >= 200 && xhr.status < 300) {
+                resolve(JSON.parse(xhr.responseText));
+              } else {
+                reject(new Error(xhr.responseText));
+              }
+            };
+            
+            xhr.onerror = () => reject(new Error('Network error'));
+            
+            xhr.open('POST', url);
+            xhr.setRequestHeader('Accept', 'application/json');
+            xhr.send(formData);
           });
-
-          if (!response.ok) {
-            throw new Error(await response.text());
-          }
-
-          const result = await response.json();
           
           uploadComplete = true;
           fileInput.disabled = true;
           uploadBox.style.cursor = 'default';
+          uploadBox.classList.remove('uploading');
           uploadBox.classList.add('uploaded');
           
           dynamicStatus.textContent = "Here's your link, click to copy";
@@ -252,6 +284,7 @@
             loadPublicFiles();
           }
         } catch (error) {
+          uploadBox.classList.remove('uploading');
           dynamicStatus.textContent = 'Click or drag a file here';
           errorDiv.textContent = 'Upload failed: ' + error.message;
           errorDiv.style.display = 'block';
