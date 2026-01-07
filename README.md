@@ -2,6 +2,11 @@
 
 Simple and secure file hosting web service in Go.
 
+Install with:
+```bash
+go install github.com/fullfox/filedropper@latest
+```
+
 ## Upload via commands
 
 **curl:**
