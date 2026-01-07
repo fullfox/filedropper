@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="utf-8">
+    <title>filedropper</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
+
+      :root {
+        --maincolor: blue;
+        --importantcolor: red;
+      }
+
+      a { color: initial; text-decoration: none;}
+      body {
+        font-family: 'Roboto Mono', monospace;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 50vw;
+        margin: 0 auto;
+      }
+
+      h1 {font-weight: 400;}
+      input[type="checkbox"]{ vertical-align: middle; }
+      #file-list, #file-label {display: contents;}
+
+      #file-input {display: none;}
+
+      select {
+        font-family: 'Roboto Mono', monospace;
+        padding: 5px 10px;
+        background: white;
+        cursor: pointer;
+      }
+
+      .table {
+        display: table;
+        width: 100%;
+        table-layout: auto;
+      }
+      .tr { display: table-row; }
+      .th,.td { display: table-cell; padding: 0 10px; }
+      .th {text-align: left; background: var(--maincolor); color: white; font-weight: bold;}
+      .td:first-child {
+        white-space: nowrap;
+        overflow: clip;
+        text-overflow: ellipsis;
+        max-width: 40ch;
+      }
+
+      .tr:hover {cursor: pointer; color: white; background: var(--maincolor);}
+
+      #upload-box {
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        flex-direction: column;
+        margin-top: 20px;
+        width: 100%;
+        height: 120px;
+        background: white;
+        border: 3px solid var(--maincolor);
+        cursor: pointer;
+        box-sizing: border-box;
+      }
+      #upload-box:hover, #upload-box.uploaded {
+        color: white;
+        background: var(--maincolor);
+      }
+
+      #dynamic-status {
+        width: 100%;
+        text-align: center;
+        color: var(--maincolor);
+      }
+      #upload-box:hover #dynamic-status, #upload-box.uploaded #dynamic-status {
+        color: white;
+      }
+
+      #static-status, #static-status a {
+        color: white;
+        text-align: center;
+      }
+      #download-link {background: var(--importantcolor);}
+      #download-link:hover {font-weight: bold;}
+      #static-status a:hover {text-decoration: underline;}
+
+      .blink { animation: blinker 1s linear infinite; }
+      @keyframes blinker {
+        0%, 50% {visibility: hidden;}
+        100% {visibility: visible;}
+      }
+
+      .error {
+        background: var(--importantcolor);
+        color: white;
+        padding: 10px;
+        margin-top: 10px;
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>>filedropper<span class="blink">_</span></h1>
+    
+    <p>Use <a href="https://github.com/fullfox/filedropper/blob/main/README.md" style="text-decoration: underline;">commands</a> or upload manually:</p>
+    
+    <div style="margin-bottom: 10px;">
+      <label style="margin-right: 15px; cursor: pointer;">
+        ⏱ Expiration: 
+        <select id="expiration">
+          <option value="1h">1 hour</option>
+          <option value="6h">6 hours</option>
+          <option value="24h">24 hours</option>
+          <option value="168h" selected>7 days</option>
+          <option value="336h">2 weeks</option>
+          <option value="720h">1 month</option>
+          <option value="2160h">3 months</option>
+          <option value="0">Permanent</option>
+        </select>
+      </label>
+      <label style="cursor: pointer;">🌍 Make public <input type="checkbox" id="public"/></label>
+    </div>
+
+    <input name="file" type="file" id="file-input"/>
+    <label for="file-input" id="file-label">
+    <div id="upload-box">
+      <span id="dynamic-status">Click or drag a file here</span>
+      <span id="static-status"></span>
+    </div>
+    </label>
+
+    <div class="error" id="error"></div>
+
+    <br>
+
+    <div class="table" id="file-table">
+      <a class="tr">
+        <div class="th">filename</div>
+        <div class="th">size</div>
+        <div class="th">expires</div>
+      </a>
+      <div id="file-list">
+      </div>
+    </div>
+    
+    <div id="no-files" style="text-align:center;color:#666;padding:10px 0;display:none;">No files</div>
+
+    <br><br><a href="https://github.com/fullfox/filedropper" style="display:flex;align-items:center;justify-content:center;gap:8px;"><img src="https://github.githubassets.com/images/modules/logos_page/GitHub-Mark.png" width="28px" height="28px" class="logo"><span>fullfox</span></a>
+
+    <script>
+      const fileInput = document.getElementById('file-input');
+      const uploadBox = document.getElementById('upload-box');
+      const dynamicStatus = document.getElementById('dynamic-status');
+      const staticStatus = document.getElementById('static-status');
+      const errorDiv = document.getElementById('error');
+      const expirationSelect = document.getElementById('expiration');
+      const publicCheckbox = document.getElementById('public');
+      const fileList = document.getElementById('file-list');
+      const noFiles = document.getElementById('no-files');
+
+      let uploadComplete = false;
+
+      // Drag and drop
+      uploadBox.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        if (uploadComplete) return;
+      });
+
+      uploadBox.addEventListener('drop', (e) => {
+        e.preventDefault();
+        if (uploadComplete) return;
+        if (e.dataTransfer.files.length > 0) {
+          uploadFile(e.dataTransfer.files[0]);
+        }
+      });
+
+      // File input change
+      fileInput.addEventListener('change', (e) => {
+        if (uploadComplete) return;
+        if (e.target.files.length > 0) {
+          uploadFile(e.target.files[0]);
+        }
+      });
+
+      function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+      }
+
+      function formatDate(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diff = date - now;
+        
+        if (diff < 0) return 'Expired';
+        
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        
+        if (days > 365) return 'Permanent';
+        if (days > 0) return `${days}d ${hours}h`;
+        return `${hours}h`;
+      }
+
+      async function uploadFile(file) {
+        staticStatus.innerHTML = '';
+        errorDiv.style.display = 'none';
+
+        if (!confirm(`Upload "${file.name}"?`)) {
+          fileInput.value = '';
+          return;
+        }
+
+        dynamicStatus.textContent = 'Uploading...';
+
+        const expiration = expirationSelect.value;
+        const isPublic = publicCheckbox.checked ? 'yes' : 'no';
+        
+        const url = `/upload/?expiration=${expiration}&public=${isPublic}`;
+        
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            body: formData,
+            headers: { 'Accept': 'application/json' }
+          });
+
+          if (!response.ok) {
+            throw new Error(await response.text());
+          }
+
+          const result = await response.json();
+          
+          uploadComplete = true;
+          fileInput.disabled = true;
+          uploadBox.style.cursor = 'default';
+          uploadBox.classList.add('uploaded');
+          
+          dynamicStatus.textContent = "Here's your link, click to copy";
+          staticStatus.innerHTML = `<a href="#" id="download-link" onclick="copyLink(event, '${result.url}')">${result.url}</a>`;
+          
+          if (isPublic === 'yes') {
+            loadPublicFiles();
+          }
+        } catch (error) {
+          dynamicStatus.textContent = 'Click or drag a file here';
+          errorDiv.textContent = 'Upload failed: ' + error.message;
+          errorDiv.style.display = 'block';
+        }
+      }
+
+      function copyLink(event, url) {
+        event.preventDefault();
+        navigator.clipboard.writeText(url).then(() => {
+          alert('Link copied to clipboard!');
+        }).catch(err => {
+          console.error('Failed to copy:', err);
+        });
+      }
+
+      async function loadPublicFiles() {
+        try {
+          const response = await fetch('/public', {
+            headers: { 'Accept': 'application/json' }
+          });
+          if (!response.ok) throw new Error('Failed to load files');
+          
+          const files = await response.json();
+          
+          if (files.length === 0) {
+            fileList.innerHTML = '';
+            noFiles.style.display = 'block';
+          } else {
+            noFiles.style.display = 'none';
+            fileList.innerHTML = files.map(file => `
+              <a href="${file.url}" class="tr" target="_blank">
+                <div class="td">${file.filename}</div>
+                <div class="td">${formatBytes(file.size)}</div>
+                <div class="td">${formatDate(file.expires_at)}</div>
+              </a>
+            `).join('');
+          }
+        } catch (error) {
+          console.error('Failed to load public files:', error);
+        }
+      }
+
+      loadPublicFiles();
+      setInterval(loadPublicFiles, 30000);
+    </script>
+  </body>
+</html>

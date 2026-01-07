@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>admin</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap');
+
+      :root {
+        --maincolor: #4545ff;
+        --importantcolor: red;
+      }
+
+      body {
+        font-family: 'Roboto Mono', monospace;
+        max-width: 1200px;
+        margin: 20px auto;
+        padding: 20px;
+      }
+
+      h1 {font-weight: 400;}
+
+      button {
+        font-family: 'Roboto Mono', monospace;
+        padding: 8px 15px;
+        border: 2px solid var(--maincolor);
+        background: white;
+        cursor: pointer;
+        margin-right: 10px;
+      }
+
+      button:hover {
+        background: var(--maincolor);
+        color: white;
+      }
+
+      button.danger {
+        border-color: var(--importantcolor);
+      }
+
+      button.danger:hover {
+        background: var(--importantcolor);
+      }
+
+      .controls {
+        margin: 20px 0;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th, td {
+        text-align: left;
+        padding: 8px 10px;
+      }
+
+      th {
+        background: var(--maincolor);
+        color: white;
+        font-weight: bold;
+      }
+
+      tr:hover td {
+        background: var(--maincolor);
+        color: white;
+        cursor: pointer;
+      }
+
+      td a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      .delete-btn {
+        color: var(--importantcolor);
+        background: none;
+        border: none;
+        font-size: 18px;
+        cursor: pointer;
+        padding: 0;
+        margin: 0;
+      }
+
+      .delete-btn:hover {
+        font-weight: bold;
+        background: none;
+        color: var(--importantcolor);
+      }
+
+      .error, .success {
+        padding: 10px;
+        margin: 10px 0;
+        display: none;
+      }
+
+      .error {
+        background: var(--importantcolor);
+        color: white;
+      }
+
+      .success {
+        background: var(--maincolor);
+        color: white;
+      }
+
+      .filename {
+        max-width: 300px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>admin</h1>
+
+    <div class="controls">
+      <button onclick="loadFiles()">Refresh</button>
+      <button class="danger" onclick="deleteAllFiles()">Delete All</button>
+    </div>
+
+    <div class="error" id="error"></div>
+    <div class="success" id="success"></div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Filename</th>
+          <th>Size</th>
+          <th>Public</th>
+          <th>IP</th>
+          <th>Expires</th>
+          <th>Delete</th>
+        </tr>
+      </thead>
+      <tbody id="file-list"></tbody>
+    </table>
+
+    <script>
+      const errorDiv = document.getElementById('error');
+      const successDiv = document.getElementById('success');
+      const fileList = document.getElementById('file-list');
+
+      function showError(msg) {
+        errorDiv.textContent = msg;
+        errorDiv.style.display = 'block';
+        successDiv.style.display = 'none';
+      }
+
+      function showSuccess(msg) {
+        successDiv.textContent = msg;
+        successDiv.style.display = 'block';
+        errorDiv.style.display = 'none';
+      }
+
+      function formatBytes(bytes) {
+        if (bytes === 0) return '0 B';
+        const k = 1024;
+        const sizes = ['B', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+      }
+
+      function formatDate(dateString) {
+        const date = new Date(dateString);
+        const now = new Date();
+        const diff = date - now;
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        if (days > 365) return 'Permanent';
+        if (days > 0) return `${days}d ${hours}h`;
+        return `${hours}h`;
+      }
+
+      async function loadFiles() {
+        errorDiv.style.display = 'none';
+        successDiv.style.display = 'none';
+
+        try {
+          const response = await fetch('/admin/files', {
+            credentials: 'include',
+            headers: { 
+              'Accept': 'application/json'
+            }
+          });
+
+          if (response.status === 401 || response.status === 403) {
+            showError('Auth failed');
+            return;
+          }
+
+          if (!response.ok) throw new Error('Failed to load');
+
+          const files = await response.json();
+
+          if (files.length === 0) {
+            fileList.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#666;">No files</td></tr>';
+            return;
+          }
+
+          fileList.innerHTML = files.map(file => `
+            <tr onclick="window.open('${file.url}', '_blank')">
+              <td class="filename" title="${file.filename}">${file.filename}</td>
+              <td>${formatBytes(file.size)}</td>
+              <td>${file.public ? 'Yes' : 'No'}</td>
+              <td>${file.upload_ip || '-'}</td>
+              <td>${formatDate(file.expires_at)}</td>
+              <td><span class="delete-btn" onclick="event.stopPropagation();deleteFile('${file.id}')">❌</span></td>
+            </tr>
+          `).join('');
+        } catch (error) {
+          showError(error.message);
+        }
+      }
+
+      async function deleteFile(id) {
+        if (!confirm('Delete?')) return;
+
+        try {
+          const response = await fetch(`/admin/files/${id}`, {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: { 
+              'Accept': 'application/json'
+            }
+          });
+
+          if (!response.ok) throw new Error('Failed');
+
+          showSuccess('Deleted');
+          loadFiles();
+        } catch (error) {
+          showError(error.message);
+        }
+      }
+
+      async function deleteAllFiles() {
+        if (!confirm('Delete ALL files?')) return;
+        if (!confirm('Really?')) return;
+
+        try {
+          const response = await fetch('/admin/files', {
+            method: 'DELETE',
+            credentials: 'include',
+            headers: { 
+              'Accept': 'application/json'
+            }
+          });
+
+          if (!response.ok) throw new Error('Failed');
+
+          showSuccess('All deleted');
+          loadFiles();
+        } catch (error) {
+          showError(error.message);
+        }
+      }
+
+      loadFiles();
+      setInterval(loadFiles, 30000);
+    </script>
+  </body>
+</html>
