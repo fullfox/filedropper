@@ -23,7 +23,6 @@
 
       button {
         font-family: 'Roboto Mono', monospace;
-        padding: 8px 15px;
         border: 2px solid var(--maincolor);
         background: white;
         cursor: pointer;
@@ -54,7 +53,10 @@
 
       th, td {
         text-align: left;
-        padding: 8px 10px;
+      }
+
+      th:last-child, td:last-child {
+        text-align: center;
       }
 
       th {
@@ -128,13 +130,12 @@
     <table>
       <thead>
         <tr>
-          <th>Filename</th>
-          <th>Size</th>
-          <th>Public</th>
-          <th>IP</th>
-          <th>Created</th>
-          <th>Expires</th>
-          <th>Delete</th>
+          <th>filename</th>
+          <th>size</th>
+          <th>public</th>
+          <th>ip</th>
+          <th>expires</th>
+          <th>delete</th>
         </tr>
       </thead>
       <tbody id="file-list"></tbody>
@@ -213,7 +214,7 @@
             <tr onclick="window.open('${file.url}', '_blank')">
               <td class="filename" title="${file.filename}">${file.filename}</td>
               <td>${formatBytes(file.size)}</td>
-              <td>${file.public ? 'Yes' : 'No'}</td>
+              <td>${file.public ? 'yes' : 'no'}</td>
               <td>${file.upload_ip || '-'}</td>
               <td>${formatDate(file.created_at)}</td>
               <td>${formatDate(file.expires_at)}</td>
