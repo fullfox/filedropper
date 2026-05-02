@@ -18,7 +18,6 @@ import (
 	"time"
 
 	_ "github.com/mattn/go-sqlite3"
-	"github.com/rs/xid"
 )
 
 //go:embed all:static
@@ -53,7 +52,7 @@ func main() {
 	flag.Parse()
 
 	if *version {
-		fmt.Println("Filedropper Go 1.0")
+		fmt.Println("Filedropper Go 1.1")
 		os.Exit(0)
 	}
 
@@ -258,7 +257,7 @@ func handleFileUpload(w http.ResponseWriter, r *http.Request, fileReader io.Read
 	// Sanitize filename
 	filename = sanitizeFilename(filename)
 
-	id := xid.New().String()
+	id := generateCode(12)
 	filePath := filepath.Join(*dataDir, "files", id)
 
 	f, err := os.Create(filePath)
@@ -393,7 +392,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	id := parts[0]
+	id := strings.ToLower(parts[0])
 
 	file, err := getFileMeta(id)
 	if err != nil {
@@ -401,7 +400,7 @@ func handleDownload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(parts) > 1 && parts[1] != file.Filename {
+	if len(parts) > 1 && strings.ToLower(parts[1]) != strings.ToLower(file.Filename) {
 		http.NotFound(w, r)
 		return
 	}
@@ -593,6 +592,18 @@ func sanitizeFilename(filename string) string {
 	}
 
 	return sanitized
+}
+
+func generateCode(length int) string {
+	const chars = "abcdefghijklmnopqrstuvwxyz0123456789"
+	b := make([]byte, length)
+	if _, err := rand.Read(b); err != nil {
+		log.Fatalf("Failed to generate random code: %v", err)
+	}
+	for i, v := range b {
+		b[i] = chars[v%byte(len(chars))]
+	}
+	return string(b)
 }
 
 func generatePassword(length int) string {
